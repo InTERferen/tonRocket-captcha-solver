@@ -1,4 +1,5 @@
 import os
+import sys
 import cv2
 import errno
 import numpy
@@ -9,7 +10,11 @@ from PIL import Image, ImageFont, ImageDraw
 from config import TEMP_DIR, SESSIONS_DIR
 
 # Шрифт для отрисовки emoji
-fnt = ImageFont.truetype("AppleColorEmoji.ttf", size=109, layout_engine=ImageFont.Layout.RAQM)
+if sys.platform == "darwin":
+    font_size = 109
+else:
+    font_size = 137
+fnt = ImageFont.truetype("AppleColorEmoji.ttf", size=font_size, layout_engine=ImageFont.Layout.RAQM)
 
 
 def parse_url(url: str) -> dict:

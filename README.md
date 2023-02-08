@@ -10,15 +10,14 @@
 Готово!   
 # Запуск:
 Запускаем скрипт с активированным виртуальным окружением   
-`python3 main.py`
+`python3 main.py [cheque link (example: https://t.me/tonRocketBot?start=mci_VQ7P3gUTgsfOUwI)]`
 # config.py
 Получение `API_ID` и `API_HASH` из `config.py`   
 Для начала нужно перейти по <a href="https://my.telegram.org/apps">этой</a> или <a href=https://my.telegram.org/auth>этой</a> ссылке   
 Ввести номер телефона и нажать `API development tools`   
 Скопировать `App api_id` и `App api_hash`   
 `TEMP_DIR` и `SESSIONS_DIR` отвечают за директории с временными файлами и файлами сессий (`*.session`)   
-В переменную `URL` необходимо ввести ссылку на чек   
-В переменную `PASSWORD` необходимо ввести пароль от чека
+В переменную `PASSWORD` необходимо ввести пароль от чека (если необходимо)
 # Зависимости:
 ```
 hikka-tl==1.24.10
