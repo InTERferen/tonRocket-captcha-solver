@@ -1,5 +1,14 @@
 ## 📦 tonRocket captcha solver
 <img src="https://i.imgur.com/f6Jb6qA.jpg"></img>  
+
+<div align="center">
+
+  <a href="https://img.shields.io/github/repo-size/Conradk10/tonRocket-captcha-solver" alt="GitHub repo size"><img src="https://img.shields.io/github/repo-size/Conradk10/tonRocket-captcha-solver" /></a>
+  <a href="https://img.shields.io/github/issues/Conradk10/tonRocket-captcha-solver" alt="GitHub issues"><img src="https://img.shields.io/github/issues/Conradk10/tonRocket-captcha-solver" /></a>
+  <a href="https://img.shields.io/github/license/Conradk10/tonRocket-captcha-solver" alt="GitHub"><img src="https://img.shields.io/github/license/Conradk10/tonRocket-captcha-solver" /></a>
+
+</div>
+
 - Скрипт предназначен для автоматизированной активации чеков из Telegram бота @tonRocketBot  
 ## 💡 Обосенности:
 - Поддерживает ввода пароля от чека
