@@ -28,7 +28,7 @@ def parse_url(url: str) -> dict:
     except Exception as err:
         logger.error(err)
         logger.error('Ссылка в конфиге введена неверно!')
-        exit(1)
+        sys.exit(1)
     return result
 
 
@@ -41,7 +41,7 @@ def check_sessions_folder():
             logger.warning('Директория для сессий уже существует. Пропускаем...')
         else:
             logger.error('Не могу создать дерикторию для сессий')
-            raise
+            raise Exception
 
 
 def get_sessions_list() -> list:
@@ -52,9 +52,9 @@ def get_sessions_list() -> list:
         if os.path.isfile(os.path.join(SESSIONS_DIR, path)):
             if path.endswith(".session"):
                 result.append(SESSIONS_DIR + "/" + path)
-    if not len(result):
+    if not result:
         logger.error("Ни одной сесси не найдено")
-        raise
+        raise Exception
 
     return result
 
