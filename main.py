@@ -74,7 +74,6 @@ async def main():
                         i = 0
                         for _ in message.reply_markup.rows:
                             for button in message.reply_markup.rows[i].buttons:
-                                print(i)
                                 if button.text.startswith('❌') or button.text.startswith('🔎'):
                                     if isinstance(button, KeyboardButtonUrl):
                                         url = button.url
@@ -88,6 +87,8 @@ async def main():
                                             except Exception as err:
                                                 logger.error(err)
                                                 logger.warning('Отправили заявку на вступление в канал')
+                                        logger.info(f'Подписались на канал по ссылке: {url}')
+                                        await asyncio.sleep(1)
                                     elif isinstance(button, KeyboardButtonCallback):
                                         await message.click(i)
                             i += 1
