@@ -18,7 +18,6 @@ fnt = ImageFont.truetype("AppleColorEmoji.ttf", size=font_size, layout_engine=Im
 
 
 def parse_url(url: str) -> dict:
-    result = {}
     try:
         result = {
             "bot": url.split('t.me/')[1].split('?')[0],

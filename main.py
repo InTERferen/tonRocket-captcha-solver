@@ -1,6 +1,27 @@
+#
+#     d88P     d88P          888b    888          888
+#      d88P   d88P           8888b   888          888
+#       d88P d88P            88888b  888          888
+#        d88888P    888888   888Y88b 888  .d88b.  888888
+#        d88888P    888888   888 Y88b888 d8P  Y8b 888
+#       d88P d88P            888  Y88888 88888888 888
+#      d88P   d88P           888   Y8888 Y8b.     Y88b.
+#     d88P     d88P          88.8    Y888  "Y8888   "Y888
+#
+#                      © Copyright 2023
+#                    https://x-net.pp.ua
+#                 https://github.com/Conradk10
+#
+#                 Licensed under the GNU GPLv3
+#          https://www.gnu.org/licenses/agpl-3.0.html
+#
+
+import re
+import sys
 import asyncio
 
 from loguru import logger
+
 from telethon.sync import TelegramClient
 from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
@@ -16,22 +37,31 @@ from config import (
     SYSTEM_LANG_CODE,
     URL,
     TEMP_DIR,
-    PASSWORD
+    PASSWORD,
+    MAX_ATTEMPTS
 )
+
 from utils import get_sessions_list, parse_url, get_buttons_emoji
 
-check_activated = ['Вы уже активировали данный мульти-чек.', 'You already activated this multi-cheque.']
-activated = ['Этот мульти-чек уже активирован.', 'This multi-cheque already activated.']
-need_sub = ['Вам необходимо подписаться на следующие ресурсы чтобы активировать данный чек:',
-            'You need to subscribe to following resources to activate this cheque:']
-need_pass = ['Введите пароль для мульти-чека.', 'Enter password for multi-cheque.']
-check_not_found = ['Мульти-чек не найден.', 'Multi-cheque not found.']
-received = ['💰 Вы получили', '💰 You received']
+
+class Pattern:
+    received = r'💰 Вы получили|💰 You received'
+    activated = r'Этот мульти-чек уже активирован.|This multi-cheque already activated.'
+    check_not_found = r'Мульти-чек не найден.|Multi-cheque not found.'
+    activated_or_not_found = r'Этот мульти-чек уже активирован.|This multi-cheque already activated.|' \
+                             r'Мульти-чек не найден.|Multi-cheque not found.'
+    check_activated = r'Вы уже активировали данный мульти-чек.|You already activated this multi-cheque.'
+    need_sub = r'Вам необходимо подписаться на следующие ресурсы чтобы активировать данный чек:|' \
+               r'You need to subscribe to following resources to activate this cheque:'
+    need_pass = r'Введите пароль для мульти-чека.|Enter password for multi-cheque.'
+    need_premium = r'Этот чек только для пользователей с Telegram Premium.|' \
+                   r'This cheque only for users with Telegram Premium.'
 
 
 async def main():
     sessions = get_sessions_list()
-    logger.info(f"Сессии: {sessions}")
+    logger.info(f"Загружено сессий: {len(sessions)} шт.\n")
+    logger.info(f"{', '.join(sessions)}")
     bot_url = parse_url(URL)
     logger.info(bot_url)
     if PASSWORD == "":
@@ -48,29 +78,31 @@ async def main():
             lang_code=LANG_CODE,
             system_lang_code=SYSTEM_LANG_CODE
         )
-        logger.info(f"{session}: Подключено!")
-
-        class message:
-            message = ""
-        i = 0
         await client.start()
+        logger.info(f"{session}: Подключено!")
         try:
             async with client.conversation(bot_url['bot']) as conv:
-                await asyncio.sleep(0.5)
-                while received[0] not in message.message or received[1] not in message.message or i < 10:
-                    exitFlag = False
+                attemp = 0
+                while attemp < MAX_ATTEMPTS:
+                    # Отправляем сообщение боту и получаем ответ
                     await conv.send_message(f'/{bot_url["command"]} {bot_url["args"]}')
                     message = await conv.get_response()
+                    await asyncio.sleep(.5)
                     logger.info(f'Получено сообщение: {message.message}')
-                    # Если чек активирован или не существует
-                    if message.message in check_activated or message.message in check_not_found or \
-                            message.message in activated:
-                        logger.warning(f'Получено сообщение: {message.message}')
-                        exitFlag = True
-                    else:
-                        pass
+                    # Если чек полностью активирован или не существует
+                    if re.search(Pattern.activated_or_not_found, message.message):
+                        logger.warning('Чек полностью активирован или не существует')
+                        sys.exit(0)
+                    # Если чек активирован
+                    if re.search(Pattern.check_activated, message.message):
+                        logger.warning('Вы уже активировали этот чек')
+                        break
+                    # Если чек только для премиумов
+                    if re.search(Pattern.need_premium, message.message):
+                        logger.warning('Этот чек только для пользователей Telegram Premium')
+                        break
                     # Если нужно подписаться на каналы
-                    if message.message in need_sub:
+                    if re.search(Pattern.need_sub, message.message):
                         i = 0
                         for _ in message.reply_markup.rows:
                             for button in message.reply_markup.rows[i].buttons:
@@ -97,7 +129,7 @@ async def main():
                         await message.download_media(f"{TEMP_DIR}/original.jpg")
                         btns = []
                         i = 0
-                        for row in message.reply_markup.rows:
+                        for _ in message.reply_markup.rows:
                             for button in message.reply_markup.rows[i].buttons:
                                 btns.append(button.text)
                             i += 1
@@ -105,23 +137,20 @@ async def main():
                         await message.click(btns.index(_emoji))
                         message = await conv.get_response()
                         logger.info(f"Нажали кнопку '{_emoji}'")
-                    # Если получили ввод пароля
-                    if need_pass[0] in message.message or need_pass[1] in message.message:
+                    # Если получили запрос на ввод пароля
+                    if re.search(Pattern.need_pass, message.message):
                         await conv.send_message(PASSWORD)
                         logger.info(f"Ввели пароль {PASSWORD}")
-                    # Если получили
-                    if received[0] in message.message or received[1] in message.message:
+                    # Если получили вознаграждение
+                    if re.search(Pattern.received, message.message):
                         logger.info(f'Получено сообщение: {message.message}')
-                        exitFlag = True
-                    i += 1
-                    if i >= 6:
+                        break
+                    attemp += 1
+                    if attemp >= 6:
                         logger.warning('Что-то пошло не так... Переходим к следующей сессии')
-                        exitFlag = True
-                    if exitFlag:
-                        conv.cancel()
-        except asyncio.exceptions.CancelledError:
-            logger.warning('Что-то пошло не так... Переходим к следующей сессии')
-
+                        break
+        except Exception as err:
+            logger.warning(f'Что-то пошло не так ({err})... Переходим к следующей сессии')
         logger.info(f"{session}: Отключаемся...")
         await client.disconnect()
     logger.info("Сессий больше нет")
