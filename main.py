@@ -106,7 +106,7 @@ async def main():
                         message = await conv.get_response()
                         logger.info(f"Нажали кнопку '{_emoji}'")
                     # Если получили ввод пароля
-                    if message.message in need_pass:
+                    if need_pass[0] in message.message or need_pass[1] in message.message:
                         await conv.send_message(PASSWORD)
                         logger.info(f"Ввели пароль {PASSWORD}")
                     # Если получили
