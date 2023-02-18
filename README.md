@@ -47,9 +47,6 @@
 ## 📝 Зависимости
 `Python 3.8+`
 ```
-hikka-tl==1.24.10
+tgchequeman==0.0.3
 loguru==0.6.0
-numpy==1.23.4
-opencv-python==4.6.0.66
-Pillow==9.3.0
 ```

@@ -17,24 +17,19 @@
 #
 
 import asyncio
+import sys
 
 from loguru import logger
 
 from telethon.sync import TelegramClient
+from tgchequeman import exceptions, activate_multicheque, parse_url
 
 from config import (
-    API_ID,
-    API_HASH,
-    DEVICE_MODEL,
-    SYSTEM_VERSION,
-    APP_VERSION,
-    LANG_CODE,
-    SYSTEM_LANG_CODE,
-    URL,
-    PASSWORD,
+    API_ID, API_HASH, DEVICE_MODEL, SYSTEM_VERSION,
+    APP_VERSION, LANG_CODE, SYSTEM_LANG_CODE, URL, PASSWORD,
 )
 
-from utils import get_sessions_list, parse_url, activate_multicheque
+from utils import get_sessions_list
 
 
 async def main():
@@ -65,8 +60,20 @@ async def main():
                 bot_url=bot_url,
                 password=PASSWORD
             )
+        except (exceptions.ChequeFullyActivatedOrNotFound, exceptions.PasswordError) as err:
+            logger.error(err)
+            await client.disconnect()
+            sys.exit(1)
+        except (exceptions.ChequeActivated,
+                exceptions.ChequeForPremiumUsersOnly,
+                exceptions.CannotActivateOwnCheque) as warn:
+            logger.warning(warn)
+            break
+        except exceptions.UnknownError as err:
+            logger.error(err)
+            break
         except Exception as err:
-            logger.warning(f'Что-то пошло не так ({err})... Переходим к следующей сессии')
+            logger.error(err)
         logger.info(f"{session}: Отключаемся...")
         await client.disconnect()
     logger.info("Сессий больше нет")
