@@ -31,16 +31,12 @@ from config import (
 
 from utils import get_sessions_list
 
+semaphore = asyncio.Semaphore(5)
+error = False
 
-async def main():
-    sessions = get_sessions_list()
-    logger.info(f"Загружено сессий: {len(sessions)} шт.\n")
-    logger.info(f"{', '.join(sessions)}")
-    bot_url = parse_url(URL)
-    logger.info(bot_url)
-    if PASSWORD == "":
-        logger.warning("Пароль не указан, могут возникнуть ошибки")
-    for session in sessions:
+
+async def work_with_account(session: str, bot_url: dict):
+    async with semaphore:
         logger.info(f"Подключаемся через сессию {session}")
         client = TelegramClient(
             session=session,
@@ -68,14 +64,29 @@ async def main():
                 exceptions.ChequeForPremiumUsersOnly,
                 exceptions.CannotActivateOwnCheque) as warn:
             logger.warning(warn)
-            break
+            return
         except exceptions.UnknownError as err:
             logger.error(err)
-            break
+            return
         except Exception as err:
             logger.error(err)
-        logger.info(f"{session}: Отключаемся...")
-        await client.disconnect()
+    logger.info(f"{session}: Отключаемся...")
+    await client.disconnect()
+
+
+async def main():
+    sessions = get_sessions_list()
+    logger.info(f"Загружено сессий: {len(sessions)} шт.\n")
+    logger.info(f"{', '.join(sessions)}")
+
+    bot_url = parse_url(URL)
+    logger.info(bot_url)
+
+    if PASSWORD == "":
+        logger.warning("Пароль не указан, могут возникнуть ошибки")
+
+    corors = [work_with_account(session, bot_url) for session in sessions]
+    await asyncio.gather(*corors)
     logger.info("Сессий больше нет")
 
 
