@@ -8,11 +8,6 @@ APP_VERSION = "4.6"
 LANG_CODE = "ru"
 SYSTEM_LANG_CODE = "ru-RU"
 
-TEMP_DIR = "temp"  # Не менять
-SESSIONS_DIR = "sessions"  # Не менять
-
-MAX_ATTEMPTS = 10   # Максимальное количество попыток активации чека
-
 try:
     URL = sys.argv[1]
 except IndexError:

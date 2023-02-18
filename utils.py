@@ -1,13 +1,40 @@
 import os
+import re
 import sys
 import cv2
 import errno
 import numpy
+import asyncio
 
 from loguru import logger
 from PIL import Image, ImageFont, ImageDraw
 
-from config import TEMP_DIR, SESSIONS_DIR
+from telethon.client.telegramclient import TelegramClient
+from telethon.tl.functions.channels import JoinChannelRequest
+from telethon.tl.functions.messages import ImportChatInviteRequest
+from telethon.tl.types import KeyboardButtonUrl, KeyboardButtonCallback
+
+TEMP_DIR = "temp"  # Не менять
+SESSIONS_DIR = "sessions"  # Не менять
+MAX_ATTEMPTS = 10   # Максимальное количество попыток активации чека
+
+
+class Pattern:
+    """
+    Этот класс содержит набор шаблонов регулярных выражений, которые используются в различных частях программы
+    """
+    received = r'💰 Вы получили|💰 You received'
+    activated = r'Этот мульти-чек уже активирован.|This multi-cheque already activated.'
+    check_not_found = r'Мульти-чек не найден.|Multi-cheque not found.'
+    activated_or_not_found = r'Этот мульти-чек уже активирован.|This multi-cheque already activated.|' \
+                             r'Мульти-чек не найден.|Multi-cheque not found.'
+    check_activated = r'Вы уже активировали данный мульти-чек.|You already activated this multi-cheque.'
+    need_sub = r'Вам необходимо подписаться на следующие ресурсы чтобы активировать данный чек:|' \
+               r'You need to subscribe to following resources to activate this cheque:'
+    need_pass = r'Введите пароль для мульти-чека.|Enter password for multi-cheque.'
+    need_premium = r'Этот чек только для пользователей с Telegram Premium.|' \
+                   r'This cheque only for users with Telegram Premium.'
+
 
 # Шрифт для отрисовки emoji
 if sys.platform == "darwin":
@@ -15,6 +42,77 @@ if sys.platform == "darwin":
 else:
     font_size = 137
 fnt = ImageFont.truetype("AppleColorEmoji.ttf", size=font_size, layout_engine=ImageFont.Layout.RAQM)
+
+
+async def activate_multicheque(client: TelegramClient, bot_url: dict, password: str):
+    async with client.conversation(bot_url['bot']) as conv:
+        attemp = 0
+        while attemp < MAX_ATTEMPTS:
+            # Отправляем сообщение боту и получаем ответ
+            await conv.send_message(f'/{bot_url["command"]} {bot_url["args"]}')
+            message = await conv.get_response()
+            await asyncio.sleep(.5)
+            logger.info(f'Получено сообщение: {message.message}')
+            # Если чек полностью активирован или не существует
+            if re.search(Pattern.activated_or_not_found, message.message):
+                logger.warning('Чек полностью активирован или не существует')
+                sys.exit(0)
+            # Если чек активирован
+            if re.search(Pattern.check_activated, message.message):
+                logger.warning('Вы уже активировали этот чек')
+                break
+            # Если чек только для премиумов
+            if re.search(Pattern.need_premium, message.message):
+                logger.warning('Этот чек только для пользователей Telegram Premium')
+                break
+            # Если нужно подписаться на каналы
+            if re.search(Pattern.need_sub, message.message):
+                i = 0
+                for _ in message.reply_markup.rows:
+                    for button in message.reply_markup.rows[i].buttons:
+                        if button.text.startswith('❌') or button.text.startswith('🔎'):
+                            if isinstance(button, KeyboardButtonUrl):
+                                url = button.url
+                                if 't.me/joinchat/' in url:
+                                    url = url.split('joinchat/')[1]
+                                    await client(ImportChatInviteRequest(url))
+                                else:
+                                    url = url.split('t.me/')[1]
+                                    try:
+                                        await client(JoinChannelRequest(url))
+                                    except Exception as err:
+                                        logger.error(err)
+                                        logger.warning('Отправили заявку на вступление в канал')
+                                logger.info(f'Подписались на канал по ссылке: {url}')
+                                await asyncio.sleep(1)
+                            elif isinstance(button, KeyboardButtonCallback):
+                                await message.click(i)
+                    i += 1
+            # Если получили капчу
+            if message.photo:
+                await message.download_media(f"{TEMP_DIR}/original.jpg")
+                btns = []
+                i = 0
+                for _ in message.reply_markup.rows:
+                    for button in message.reply_markup.rows[i].buttons:
+                        btns.append(button.text)
+                    i += 1
+                _emoji = get_buttons_emoji(btns)
+                await message.click(btns.index(_emoji))
+                message = await conv.get_response()
+                logger.info(f"Нажали кнопку '{_emoji}'")
+            # Если получили запрос на ввод пароля
+            if re.search(Pattern.need_pass, message.message):
+                await conv.send_message(password)
+                logger.info(f"Ввели пароль {password}")
+            # Если получили вознаграждение
+            if re.search(Pattern.received, message.message):
+                logger.info(f'Получено сообщение: {message.message}')
+                break
+            attemp += 1
+            if attemp >= 6:
+                logger.warning('Что-то пошло не так... Переходим к следующей сессии')
+                break
 
 
 def parse_url(url: str) -> dict:
